@@ -1,0 +1,5 @@
+MCP stands for Model Context Protocol.
+It lets AI models call tools defined on a separate server.
+This project demonstrates the pattern with two tools:
+  - read_document
+  - edit_document
