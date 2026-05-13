@@ -1,10 +1,10 @@
 # 📄 Document Chatbot — MCP Intro Project
 
-A **CLI chatbot** that lets you manage a collection of plain-text documents using the
-**Model Context Protocol (MCP)** — the open standard that lets AI models talk to external tools.
+A **CLI chatbot** that manages a collection of plain-text documents using the
+**Model Context Protocol (MCP)** — the open standard for connecting AI models to external tools.
 
-This project is a hands-on introduction to MCP: you will see a real **MCP server** and
-**MCP client** talking to each other over stdio, with two tools exposed to the user.
+This project is a hands-on introduction to MCP. It shows a real **MCP server** and
+**MCP client** talking to each other over stdio, with three tools exposed to the user.
 
 ---
 
@@ -13,15 +13,16 @@ This project is a hands-on introduction to MCP: you will see a real **MCP server
 ```
 mcp/
 ├── main.py              ← Entry point — CLI chatbot (REPL loop)
-├── mcp_server.py        ← MCP server (exposes tools via the mcp SDK)
-├── mcp_client.py        ← MCP client (connects to server, calls tools)
+├── mcp_server.py        ← MCP server built with FastMCP
+├── mcp_client.py        ← MCP client — connects to server and calls tools
 ├── core/
 │   ├── __init__.py
 │   └── documents.py     ← File I/O logic (reads/writes ./documents/)
-├── documents/           ← Your document collection lives here
+├── documents/           ← Your document collection (created automatically)
 │   ├── sample.txt
 │   └── about-mcp.txt
-├── pyproject.toml       ← Project dependencies (uv / pip)
+├── pyproject.toml       ← Project metadata and dependencies
+├── .gitignore
 └── README.md
 ```
 
@@ -33,25 +34,23 @@ mcp/
 You (terminal)
       │
       ▼
-  main.py  ←─── CLI chatbot, reads your commands
+  main.py          ← reads your commands
       │
       ▼
-mcp_client.py  ──── JSON-RPC 2.0 over stdin/stdout ────►  mcp_server.py
-                          (MCP protocol)                         │
-                                                                 ▼
-                                                         core/documents.py
-                                                         reads/writes ./documents/
+mcp_client.py  ──── MCP protocol (stdio) ────►  mcp_server.py  (FastMCP)
+                                                       │
+                                                       ▼
+                                               core/documents.py
+                                               reads/writes ./documents/
 ```
 
-The **MCP server** exposes two tools:
+The **MCP server** exposes three tools:
 
 | Tool | What it does |
 |------|-------------|
-| `read_document` | Read any file from `./documents/` |
-| `edit_document` | Create or overwrite a file in `./documents/` |
-
-The **MCP client** launches the server as a subprocess and communicates using the
-official `mcp` Python SDK — exactly the same way Claude Desktop talks to MCP servers.
+| `read_document_tool` | Read any file from `./documents/` |
+| `edit_document_tool` | Create or overwrite a file |
+| `list_documents_tool` | List all files in the collection |
 
 ---
 
@@ -59,14 +58,15 @@ official `mcp` Python SDK — exactly the same way Claude Desktop talks to MCP s
 
 | Requirement | Version |
 |-------------|---------|
-| Python | **3.10 or newer** |
+| Python | **3.10 or newer** (3.11 recommended) |
 | uv | any recent version |
+| Node.js + npm | only needed for `mcp dev` inspector UI |
 
 > ✅ Tested on Python 3.11 / RHEL 9
 
 ---
 
-## 🚀 Installation & Running
+## 🚀 Installation
 
 ### 1. Clone the repository
 
@@ -75,23 +75,44 @@ git clone https://github.com/<your-username>/<your-repo>.git
 cd <your-repo>
 ```
 
-### 2. Pin Python version (if you have multiple versions)
+### 2. Check your Python version
+
+```bash
+python3 --version
+```
+
+If you have multiple versions (e.g. 3.9 and 3.11), pin to 3.11:
 
 ```bash
 uv python pin 3.11
 ```
 
-> Skip this step if `python --version` already shows 3.10+.
-
 ### 3. Install dependencies
 
 ```bash
-uv add mcp anthropic
+uv add "mcp[cli]" anthropic
 ```
 
-This creates a `.venv/` virtual environment and installs all required packages automatically.
+This creates `.venv/` and installs all required packages automatically.
 
-### 4. Run the chatbot
+> **Troubleshooting — project name conflict:**
+> If you see `Requirement name 'mcp' matches project name`, run:
+> ```bash
+> sed -i 's/name = "mcp"/name = "doc-chatbot"/' pyproject.toml
+> uv add "mcp[cli]" anthropic
+> ```
+
+> **Troubleshooting — Python version too old:**
+> If you see `mcp requires Python >=3.10`, run:
+> ```bash
+> uv python pin 3.11
+> sed -i 's/>=3.9/>=3.10/' pyproject.toml
+> uv add "mcp[cli]" anthropic
+> ```
+
+---
+
+## ▶️ Running the Chatbot
 
 ```bash
 uv run python main.py
@@ -131,14 +152,13 @@ chatbot>
 ```
 chatbot> list
   📁  2 document(s):
-
       • about-mcp.txt
       • sample.txt
 
 chatbot> read sample.txt
-  ── sample.txt ──────────────────────────────────
+  ── sample.txt ─────────────────────────────────────
   This is a sample document. Edit me with the edit command.
-  ────────────────────────────────────────────────
+  ───────────────────────────────────────────────────
 
 chatbot> new meeting-notes.txt
   ┌─ Editor ──────────────────────────────────────────┐
@@ -147,18 +167,14 @@ chatbot> new meeting-notes.txt
   └────────────────────────────────────────────────────┘
   | Team standup - 2025-05-14
   | - Reviewed MCP project
-  | - Next: connect a real LLM
   | !save
   ✅  Document 'meeting-notes.txt' saved successfully.
 
 chatbot> tools
-  🔧  2 tool(s) registered on the MCP server:
-
-      • read_document
-        Read the full text content of a document from the collection.
-
-      • edit_document
-        Create or overwrite a document in the collection.
+  🔧  3 tool(s) registered on the MCP server:
+      • read_document_tool
+      • edit_document_tool
+      • list_documents_tool
 
 chatbot> exit
   Goodbye!
@@ -166,47 +182,66 @@ chatbot> exit
 
 ---
 
-## 🔑 Key MCP Concepts Demonstrated
+## 🔍 MCP Inspector (Browser UI)
 
-| Concept | Where |
-|---------|-------|
-| `initialize` / `initialized` handshake | `mcp_client.py` → `start()` |
-| `tools/list` — server advertises capabilities | `mcp_server.py` → `handle_list_tools()` |
-| `tools/call` — client invokes a tool | `mcp_client.py` → `read_document()` / `edit_document()` |
-| `resources/list` — server exposes document collection | `mcp_server.py` → `handle_list_resources()` |
-| stdio transport | `mcp_server.py` → `stdio_server()` |
+The MCP Inspector lets you test your tools visually in a browser — no chatbot needed.
+
+### Requirements
+
+Install Node.js first (needed by the inspector):
+
+```bash
+# RHEL / CentOS
+dnf install -y nodejs
+
+# Ubuntu / Debian
+apt install -y nodejs npm
+```
+
+### Run the inspector
+
+```bash
+uv run mcp dev mcp_server.py
+```
+
+This opens a browser UI where you can:
+- See all tools and their input schemas
+- Call any tool manually and see the response
+- Debug your server without writing any client code
 
 ---
 
-## 🔧 Troubleshooting
+## 🔑 Key MCP Concepts Demonstrated
 
-**`error: Requirement name 'mcp' matches project name`**
-```bash
-sed -i 's/name = "mcp"/name = "doc-chatbot"/' pyproject.toml
-uv add mcp anthropic
-```
+| Concept | Where in code |
+|---------|--------------|
+| FastMCP server setup | `mcp_server.py` — `mcp = FastMCP("doc-server")` |
+| Tool definition with decorator | `mcp_server.py` — `@mcp.tool()` |
+| Resource definition | `mcp_server.py` — `@mcp.resource("doc://{name}")` |
+| MCP handshake | `mcp_client.py` — `session.initialize()` |
+| Tool call from client | `mcp_client.py` — `session.call_tool(...)` |
+| stdio transport | `mcp_client.py` — `stdio_client(server_params)` |
 
-**`mcp requires Python >=3.10`**
-```bash
-uv python pin 3.11
-sed -i 's/>=3.9/>=3.10/' pyproject.toml
-uv add mcp anthropic
-```
+---
 
-**`No pyproject.toml found`**
-```bash
-uv init --no-readme
-# then follow the steps above
-```
+## 📦 Dependencies Explained
+
+| Package | Why |
+|---------|-----|
+| `mcp[cli]` | MCP Python SDK + `mcp dev` inspector command |
+| `anthropic` | Anthropic API client (for future LLM integration) |
+
+All managed by **uv** — a fast Python package manager.
+`uv add <package>` installs and saves to `pyproject.toml` automatically.
 
 ---
 
 ## 💡 Ideas to Extend the Project
 
-- **`delete_document` tool** — add it in `mcp_server.py` and `core/documents.py`
+- **`delete_document` tool** — add `@mcp.tool()` in `mcp_server.py` + delete logic in `core/documents.py`
 - **`search_documents` tool** — search text across all documents
-- **Connect a real LLM** — pass the tool definitions to Claude or OpenAI and let the model decide which tool to call
-- **Multiple servers** — add a second MCP server for a contacts list or task manager
+- **Connect Claude** — pass tool definitions to the Anthropic API and let Claude decide which tool to call based on user input
+- **Second MCP server** — add a contacts list or task manager as a separate server
 
 ---
 
@@ -214,5 +249,6 @@ uv init --no-readme
 
 - [MCP Official Docs](https://modelcontextprotocol.io)
 - [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
-- [Anthropic Claude API](https://docs.anthropic.com)
-- [uv — Python package manager](https://docs.astral.sh/uv)
+- [FastMCP Guide](https://github.com/modelcontextprotocol/python-sdk#fastmcp)
+- [uv Documentation](https://docs.astral.sh/uv)
+- [Anthropic API Docs](https://docs.anthropic.com)
