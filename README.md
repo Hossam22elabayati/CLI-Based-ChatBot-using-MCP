@@ -112,7 +112,7 @@ This creates `.venv/` and installs all required packages automatically.
 
 ---
 
-## ▶️ Running the Chatbot
+## ▶️ Running the Chatbot :
 
 ```bash
 uv run python main.py
