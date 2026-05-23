@@ -245,7 +245,7 @@ All managed by **uv** — a fast Python package manager.
 
 ---
 
-## 📚 Resources
+## 📚 Resources:
 
 - [MCP Official Docs](https://modelcontextprotocol.io)
 - [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
