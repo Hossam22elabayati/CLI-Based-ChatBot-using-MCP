@@ -66,7 +66,7 @@ The **MCP server** exposes three tools:
 
 ---
 
-## 🚀 Installation
+## 🚀 Installation :
 
 ### 1. Clone the repository
 
